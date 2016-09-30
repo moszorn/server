@@ -1,7 +1,6 @@
 module.exports = {
-    stringify(status,playerId,nickname,message){
-        return JSON.stringify(Object.assign(Object.prototype,{status,playerId,nickname,message}));
+    stringify(type,id,nick,message){
+        return JSON.stringify(Object.assign(Object.prototype,{type,id,nick,message}));
     }
 };
-
 

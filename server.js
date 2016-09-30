@@ -5,9 +5,13 @@ var utils = require('./utils');
 const STATUS = {
     init:0/*洗*/,
     start:1/*發*/,
-    bid:3/*叫*/,
+    auctionBridge:3/*叫*/,
     firstLead:4/*首引*/,
-
+    assignSeat:101/*指定座位*/,
+    play:102/*出牌*/,
+    trick:200/*一輪牌*/,
+    setSuit:100/*指定花王*/,
+    shuffle:201/*洗牌*/,
     close:-1
 };
 const seat = ['s','e','n','w'];
@@ -31,18 +35,20 @@ let hostUrl = 'ws://localhost',
     clients = [],
     client_uuid = undefined;
 
-function wsSend(nickname, status, message) {
+function wsSend(type, id, nickname, message) {
     const player = clients.find(player=>player.nickname = nickname);
+    console.log(`[wsSend]id: ${player.id}, nickname:${player.nickname}, status:${type}, ws.readyState = ${player.ws.readyState}`);
+
     if(player)
         if(WebSocket.OPEN === player.ws.readyState)
-            player.ws.send(utils.stringify(status,player.id,player.nickname,message));
+            player.ws.send(utils.stringify( type, player.id, player.nickname, message));
 }
 
 function sendAll(status,messages){
     clients.forEach((player)=>{
         if(WebSocket.OPEN === player.ws.readyState)
-            player.ws.send(utils.stringify(status,player.id,player.nickname,messages[player.id]));
-     });
+    player.ws.send(utils.stringify(status,player.id,player.nickname,messages[player.id]));
+});
 }
 
 
@@ -53,50 +59,53 @@ let clientIndex = 1;
 wss.on('connection', (ws)=>{
 
     let _seat = getSeat();
-    var player = {id: _seat,  "ws": ws, nickname: _seat + uuid.v4()};
-    clients.push(player);
-    console.log(player.id);
+var player = {id: _seat,  "ws": ws, nickname: _seat + uuid.v4()};
+clients.push(player);
+console.log(player.id);
 
-   if(clients.length === 4) {
-       sendAll(STATUS.start,shuffle());
-   }
+if(clients.length === 4) {
+    sendAll(STATUS.start,shuffle());
+}
+else{
+    wsSend(STATUS.assignSeat,_seat,player.nickname,_seat);
+}
 
 ws.on('message',(str)=>{
     let json = JSON.parse(str);
-    console.log('[on message] ' ,json );
-   // wsSend("message", player.id, player.nickname, msg);
-    switch (json.type){
-        case 'init':
-            break;
-        case 'deal': break;
-        case 'shuffle': break;
-        case 'close': break;
-        default:
-            console.log('[on message]  default');
-    }
+console.log('[on message] ' ,json );
+
+switch (json.type){
+    case 'init':
+        break;
+    case 'deal': break;
+    case 'shuffle': break;
+    case 'close': break;
+    default:
+        console.log('[on message]  default');
+}
 });
-   ws.on('close', function() {closeSocket();});
+ws.on('close', function() {closeSocket();});
 
-    process.on('SIGINT', function() {
-        console.log("Closing things");
-        closeSocket('Server has disconnected');
-        process.exit();
-    });
+process.on('SIGINT', function() {
+    console.log("Closing things");
+    closeSocket('Server has disconnected');
+    process.exit();
+});
 
-    var closeSocket = function(customMessage) {
-        for(var i=0; i<clients.length; i++) {
-            if(clients[i].id == client_uuid) {
-                var disconnect_message;
-                if(customMessage) {
-                    disconnect_message = customMessage;
-                } else {
-                    disconnect_message = nickname + " has disconnected";
-                }
-                sendAll("notification", client_uuid, nickname, disconnect_message);
-                clients.splice(i, 1);
+var closeSocket = function(customMessage) {
+    for(var i=0; i<clients.length; i++) {
+        if(clients[i].id == client_uuid) {
+            var disconnect_message;
+            if(customMessage) {
+                disconnect_message = customMessage;
+            } else {
+                disconnect_message = nickname + " has disconnected";
             }
+            sendAll("notification", client_uuid, nickname, disconnect_message);
+            clients.splice(i, 1);
         }
     }
+}
 
 });
 
